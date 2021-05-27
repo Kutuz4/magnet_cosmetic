@@ -1,0 +1,8 @@
+numpy
+pandas
+aiohttp
+bs4
+streamlit
+matplotlib
+sklearn
+asyncio
