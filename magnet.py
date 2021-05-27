@@ -13,14 +13,15 @@ from sklearn.ensemble import RandomForestClassifier as Forest
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
+
 cities_url_list = [55568, 56500, 93848, 79623, 106911, 57949, 131687]
 cities = {key:value for key, value in zip(cities_url_list, ['Москва', 'Зеленоград', 'Коммунарка', 'Марушкино', 'Московский', 'Щербинка', 'п. Шишкин Лес'])}
-#использованные технологии - пандас, api, визуализация, streamlit
-#веб скрепинг с помощью BS4 и машинное обучение. Использовались такие функции pandas как apply, groupby, count, drop
+
 def decoding(st):
     if isinstance(st, str):
         return st.encode('ascii').decode('unicode_escape')
     return st
+
 async def decode_shop(jsn):
     tmp = dict()
     stops = set(['fShop', 'way', 'close', 'rating', 'target', 'city'])
@@ -31,18 +32,21 @@ async def decode_shop(jsn):
     tmp['lng'] = tmp['coords']['lng']
     tmp['city'] = jsn['shops'][0]['city']
     return tmp
+
 async def get(session, city_url, city_id):
     async with aiohttp.ClientSession() as session:
         async with session.get(f'https://magnitcosmetic.ru{city_url}') as response:
             res = await response.read()
             result = await parse_shops(res, city_id)
             return result
+        
 async def parse_shops(content, city_id):
     site = str(content)
     one = site.index('oneShopData')
     data = json.loads(site[one + 14: site.index('</script>', one)])
     data['shops'][0]['city'] = cities[city_id]
     return data
+
 def parse_shops_magnet(id):
     url = f'https://magnitcosmetic.ru/shops/shop_list.php?city_id={id}'
     response = requests.get(url)
@@ -51,6 +55,7 @@ def parse_shops_magnet(id):
         return shops_list
     else:
         return False
+    
 async def parse():
     tasks = list()
     async with aiohttp.ClientSession() as session:
@@ -59,14 +64,17 @@ async def parse():
                 tasks.append(get(session, shop, city_id))
         data = await asyncio.gather(*tasks)
         return data
+    
 async def gather_tasks(tasks):
     return await asyncio.gather(*tasks)
+
 def get_data():
     tasks = [decode_shop(shop) for shop in asyncio.run(parse())]
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     tasks = asyncio.run(gather_tasks(tasks))
     return tasks
+
 def main():
     tasks = get_data()
     df = pd.DataFrame(tasks).drop('weekend', axis=1)
@@ -74,6 +82,7 @@ def main():
     df['shop'] = pd.Series(['Магнит-косметик' for i in range(len(df))], index=df.index)
     df['country'] = pd.Series(['Russia' for i in range(len(df))], index=df.index)
     return df
+
 def agg_ml(dataframe, Model):
     X, y = dataframe[['lat', 'lng']], dataframe['city']
     encoder = {y.unique()[i]:i for i in range(len(y.unique()))}
@@ -98,7 +107,8 @@ def agg_ml(dataframe, Model):
         cities = dataframe.query(f'predicted_city == "{city}"')
         axes.scatter(cities['lat'], cities['lng'], color=colors[city])
     axes.legend([city for city in dataframe['predicted_city'].unique()])
-    st.write(fig)    
+    st.write(fig)
+    
 if __name__ == '__main__':
     dataframe = main()
     columns = dataframe.columns
